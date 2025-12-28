@@ -197,15 +197,55 @@ function resetObstacles() {
 }
 
 // === Game Logic ===
-function checkCollision() {}
+function checkCollision() {
+  obstacles.forEach((obs) => {
+    // Define the player's bounding box
+    const pLeft = player.x;
+    const pRight = player.x + player.width;
+    const pTop = player.y;
+    const pBottom = player.y + player.height;
+
+    // Define the Obstacle's left and right sides
+    const oLeft = obs.x;
+    const oRight = obs.x + obs.width;
+
+    // Check if the player is within the obstacle bounding box
+    if (pRight > oLeft && pLeft < oRight) {
+      // If the player touches the top part of the obstacle trigger collision
+      if (pTop < obs.topHeight) {
+        onCollision();
+      }
+
+      // If the player touches the bottom part of the obstacle trigger collision
+      if (pBottom > obs.bottomY) {
+        onCollision();
+      }
+    }
+
+    // If the player has passed through the gap change the passed flag to true and update score
+    if (!obs.passed && pLeft > oRight) {
+      updateScore();
+      obs.passed = true;
+    }
+  });
+}
 function onCollision() {
   gameOver();
 }
 
 // === Score Logic ===
-function resetScore() {}
-function updateScore() {}
-function updateHighScore() {}
+function resetScore() {
+  score = 0;
+}
+function updateScore() {
+  score++;
+  if (score > highScore) {
+    updateHighScore();
+  }
+}
+function updateHighScore() {
+  highScore = score;
+}
 function drawScore() {
   ctx.save();
 
