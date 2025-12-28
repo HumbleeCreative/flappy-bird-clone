@@ -5,7 +5,7 @@ let canvas;
 let ctx;
 
 let gameRunning = false;
-let lastSpawnTimer = 0;
+let lastSpawnTime = 0;
 let score = 0;
 let highScore = 0;
 
@@ -14,7 +14,7 @@ const config = {
   jumpStrength: -8,
   obstacleSpeed: 3,
   obstacleGap: 150,
-  obstacleSpawnRate: 1500,
+  obstacleSpawnRate: 2000,
 };
 
 let player = {
@@ -87,10 +87,10 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  drawWorld();
-  drawPlayer();
-  drawObstacles();
-  drawScore();
+  drawWorld(); // Draws first
+  drawObstacles(); // Draws on top of the World
+  drawPlayer(); // Draws on top of the Obstacles
+  drawScore(); // Draws on top of the everything
 }
 
 // === Visuals ===
@@ -106,6 +106,7 @@ function drawGameOverScreen() {}
 // === Player Logic ===
 function createPlayer() {}
 function resetPlayer() {
+  // Resets the player to be 20% of the canvas width from the left of the canvas and centred vertically
   player.x = canvas.width / 5;
   player.y = canvas.height / 2;
   player.velocity = 0;
@@ -121,6 +122,7 @@ function movePlayer() {
   // If the player hits the floor trigger collision
   if (player.y + player.height > canvas.height) {
     player.y = canvas.height - player.height;
+    // Triggers a collision
     onCollision();
   }
 
@@ -138,18 +140,57 @@ function playerJump() {
 // === Obstacle Logic ===
 function createObstacles() {
   // Creates the obstacle and pushes it on to the array 'obstacles'
+
+  let minHeight = 50;
+  let maxHeight = canvas.height - config.obstacleGap - 50;
+  // Sets the size of the top part of the obstacle
+  let topObstacleHeight =
+    Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+
+  // Creates the obstacle object
+  let obstacle = {
+    x: canvas.width, // Starts at the right edge of canvas
+    width: 50, // Fixed width for obstacle
+    topHeight: topObstacleHeight, // Where the top part of the obstacle ends
+    bottomY: topObstacleHeight + config.obstacleGap, // Where the bottom part of the obstacle starts
+    passed: false, // Flag to track score
+  };
+  // Adds the obstacle to the array
+  obstacles.push(obstacle);
 }
 function spawnObstacles() {
   // Handles the spawning of obstacles with a timer
+
+  let currentTime = Date.now();
+  // If the current time minus the lastSpawnTime is larger than the spawn rate we create an obstacle and reset the last spawn time
+  if (currentTime - lastSpawnTime > config.obstacleSpawnRate) {
+    createObstacles();
+    lastSpawnTime = currentTime;
+  }
 }
 function drawObstacles() {
-  // Loops through the array of 'obstacles' and draws them
+  ctx.save();
+  ctx.fillStyle = "Green";
+
+  // Loop through the array of 'obstacles' and draws them
+  obstacles.forEach((obs) => {
+    // Draw the top part of the obstacle
+    ctx.fillRect(obs.x, 0, obs.width, obs.topHeight);
+
+    // Draw the bottom part of the obstacle
+    ctx.fillRect(obs.x, obs.bottomY, obs.width, canvas.height - obs.bottomY);
+  });
+  ctx.restore();
 }
 function moveObstacles() {
   // Loops through the array of 'obstacles' and updates the x positions
+  obstacles.forEach((obs) => {
+    obs.x -= config.obstacleSpeed;
+  });
 }
 function cleanupObstacles() {
   // Removes obstacles when they have gone off the screen
+  obstacles = obstacles.filter((obs) => obs.x + obs.width > 0);
 }
 function resetObstacles() {
   obstacles = []; // Clears the array
@@ -178,7 +219,7 @@ function drawScore() {
   ctx.shadowOffsetX = 2;
   ctx.shadowOffsetY = 2;
 
-  // Paints the score at the top center of the canvas
+  // Draws the score at the top center of the canvas
   ctx.fillText(`${score}`, canvas.width / 2, canvas.height / 10);
 
   ctx.restore();
