@@ -4,7 +4,8 @@
 let canvas;
 let ctx;
 
-let gameRunning = false;
+let firstGame = true; // Flag to track if this is the first game in the session
+let gameRunning = false; // Flag to track the game state
 let lastSpawnTime = 0;
 let score = 0;
 let highScore = 0;
@@ -59,6 +60,7 @@ function gameLoop() {
 
 // === Game States ===
 function gameReset() {
+  firstGame = false;
   resetPlayer();
   resetObstacles();
   resetScore();
@@ -85,12 +87,20 @@ function update() {
   }
 }
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height); // Clears the canvas
 
   drawWorld(); // Draws first
   drawObstacles(); // Draws on top of the World
   drawPlayer(); // Draws on top of the Obstacles
   drawScore(); // Draws on top of the everything
+
+  if (!gameRunning) {
+    if (firstGame) {
+      drawStartScreen();
+    } else {
+      drawGameOverScreen();
+    }
+  }
 }
 
 // === Visuals ===
