@@ -9,6 +9,7 @@ let gameRunning = false; // Flag to track the game state
 let lastSpawnTime = 0;
 let score = 0;
 let highScore = 0;
+let lastUpdateTime = 0;
 
 const config = {
   gravity: 0.3,
@@ -45,15 +46,27 @@ function init() {
   canvas.addEventListener("mousedown", handleInput);
 
   loadAssets();
-
-  gameLoop();
+  requestAnimationFrame((timestamp) => {
+    lastUpdateTime = timestamp;
+    gameLoop(timestamp);
+  });
 }
 
 window.onload = init; // Runs the initialisation on page load
 
 // === Game Loop ===
-function gameLoop() {
-  update();
+function gameLoop(timestamp) {
+  // Calculate time since last frame update in milliseconds
+  let deltaTime = timestamp - lastUpdateTime;
+  lastUpdateTime = timestamp;
+
+  // Cap the deltaTime to 16.6 to prevent any huge lag spikes
+  if (deltaTime > 100) deltaTime = 16.6;
+
+  // This normalises dt for 60 frames per second
+  let dt = deltaTime / 16.6;
+
+  update(dt);
   draw();
   requestAnimationFrame(gameLoop);
 }
@@ -77,11 +90,11 @@ function resizeCanvas() {
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
 }
-function update() {
+function update(dt) {
   if (gameRunning) {
-    movePlayer();
+    movePlayer(dt);
     spawnObstacles();
-    moveObstacles();
+    moveObstacles(dt);
     cleanupObstacles();
     checkCollision();
   }
@@ -125,9 +138,12 @@ function drawPlayer() {
   ctx.fillStyle = "yellow";
   ctx.fillRect(player.x, player.y, player.width, player.height);
 }
-function movePlayer() {
-  player.velocity += config.gravity;
-  player.y += player.velocity; // Makes the player fall at the rate of gravity
+function movePlayer(dt) {
+  // We multiply everything by dt to make sure the fall speed is consistent on any device
+  player.velocity += config.gravity * dt;
+  // Caps falling speed to 10 to prevent glitches
+  if (player.velocity > 10) player.velocity = 10;
+  player.y += player.velocity * dt; // Makes the player fall at the rate of gravity
 
   // If the player hits the floor trigger collision
   if (player.y + player.height > canvas.height) {
@@ -192,10 +208,11 @@ function drawObstacles() {
   });
   ctx.restore();
 }
-function moveObstacles() {
+function moveObstacles(dt) {
   // Loops through the array of 'obstacles' and updates the x positions
+  // We multiply everything by dt to make sure the speed is consistent on any device
   obstacles.forEach((obs) => {
-    obs.x -= config.obstacleSpeed;
+    obs.x -= config.obstacleSpeed * dt;
   });
 }
 function cleanupObstacles() {
