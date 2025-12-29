@@ -15,6 +15,7 @@ let ctx;
 let firstGame = true; // Flag to track if this is the first game in the session
 let gameRunning = false; // Flag to track the game state
 let paused = false; // Flag to track paused game state
+let jumpRequested = false; // Flag to track if we should trigger a jump
 let spawnTimer = 0;
 let score = 0;
 let highScore = 0;
@@ -143,6 +144,11 @@ function resizeCanvas() {
 }
 function update(dt, deltaTime) {
   if (gameRunning && !paused) {
+    // Check the buffer before moving anything
+    if (jumpRequested) {
+      playerJump();
+      jumpRequested = false; // Reset the flag
+    }
     movePlayer(dt);
     spawnObstacles(deltaTime); // Makes sure the timer only counts up when the game is not paused.
     moveObstacles(dt);
@@ -275,8 +281,8 @@ function drawObstacles() {
   // Loop through the array of 'obstacles' and draws them
   obstacles.forEach((obs) => {
     // Draw the top part of the obstacle
-    ctx.strokeRect(obs.x, 0, obs.width, obs.topHeight);
-    ctx.fillRect(obs.x, 0, obs.width, obs.topHeight);
+    ctx.strokeRect(Math.floor(obs.x), 0, obs.width, obs.topHeight); // Introduced Math.floor to smooth out the edges
+    ctx.fillRect(Math.floor(obs.x), 0, obs.width, obs.topHeight);
 
     // Draw the bottom part of the obstacle
     ctx.strokeRect(obs.x, obs.bottomY, obs.width, canvas.height - obs.bottomY);
@@ -421,7 +427,8 @@ function inputHandler(action) {
       paused = false;
       menuScreen.style.display = "none";
     } else {
-      playerJump();
+      jumpRequested = true; // This works as a buffer instead of running the function instantly
+      // playerJump();
     }
   }
 
