@@ -134,6 +134,12 @@ function resizeCanvas() {
   // Sets the canvas resolution to the actual canvas size as defined in the CSS
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
+
+  // Updates player size on resize event
+  if (player) {
+    player.width = canvas.width * 0.8;
+    player.height = player.width;
+  }
 }
 function update(dt, deltaTime) {
   if (gameRunning && !paused) {
