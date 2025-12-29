@@ -1,5 +1,13 @@
 // script.js
 
+// === DOM ===
+const menuScreen = document.getElementById("menu-screen");
+const menuTitle = document.getElementById("menu-title");
+const menuStats = document.getElementById("menu-stats");
+const menuBtn = document.getElementById("menu-btn");
+const liveScore = document.getElementById("live-score");
+const pauseBtn = document.getElementById("pause-btn");
+
 // === Global Variables ===
 let canvas;
 let ctx;
@@ -63,6 +71,20 @@ function init() {
   canvas.addEventListener("mousedown", inputManager);
   canvas.addEventListener("touchstart", inputManager, { passive: false });
 
+  pauseBtn.addEventListener("click", (e) => {
+    e.stopPropagation(); // e.stopPropagation stops the button clicks triggering the canvas click event
+    inputHandler("Pause");
+  });
+
+  if (menuBtn) {
+    menuBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // e.stopPropagation stops the button clicks triggering the canvas click event
+      inputHandler("Jump");
+    });
+  }
+  // Set the initial Start Screen
+  drawStartScreen();
+
   loadAssets();
   requestAnimationFrame((timestamp) => {
     lastUpdateTime = timestamp;
@@ -98,10 +120,13 @@ function gameReset() {
   gameRunning = true;
   paused = false;
   spawnTimer = 0;
+
+  menuScreen.style.display = "none";
 }
 
 function gameOver() {
   gameRunning = false;
+  drawGameOverScreen();
 }
 
 // === Utilities ===
@@ -125,26 +150,43 @@ function draw() {
   drawWorld(); // Draws first
   drawObstacles(); // Draws on top of the World
   drawPlayer(); // Draws on top of the Obstacles
-  drawScore(); // Draws on top of the everything
 
-  if (!gameRunning) {
-    if (firstGame) {
-      drawStartScreen();
-    } else {
-      drawGameOverScreen();
-    }
-  }
+  // Moved over to using a live-score element instead of the canvas
+  // drawScore(); // Draws on top of the everything
 }
 
 // === Visuals ===
 function loadAssets() {
+  // Load high score from memory when the game starts
+  const savedScore = localStorage.getItem("flappyDragonHighScore");
+  if (savedScore) {
+    highScore = parseInt(savedScore);
+  }
   // Loads the sprites for anything visual
 
   player.width = canvas.width * 0.08; // Makes the player object responsive to canvas size
   player.height = player.width;
 }
-function drawStartScreen() {}
-function drawGameOverScreen() {}
+function drawStartScreen() {
+  menuTitle.innerHTML = "FLAPPY<br>DRAGON";
+  menuStats.textContent = "HumbleeCreative";
+  menuBtn.textContent = "Start Game";
+  menuBtn.style.display = "block";
+  menuScreen.style.display = "flex";
+}
+function drawGameOverScreen() {
+  menuTitle.innerHTML = "💀<br>uh oh!";
+  menuStats.innerHTML = `SCORE: ${score} <span style="color:white; margin: 0 10px;">|</span> BEST: ${highScore}`;
+  menuBtn.textContent = "Try Again";
+  menuBtn.style.display = "block";
+  menuScreen.style.display = "flex";
+}
+function drawPauseScreen() {
+  menuTitle.textContent = "Paused";
+  menuStats.textContent = "Press Space to restart";
+  menuBtn.style.display = "none";
+  menuScreen.style.display = "flex";
+}
 
 // === Player Logic ===
 function createPlayer() {}
@@ -216,14 +258,21 @@ function spawnObstacles(deltaTime) {
 }
 function drawObstacles() {
   ctx.save();
-  ctx.fillStyle = "Green";
+  // Cyan glow for obstacles
+  ctx.strokeStyle = "#00f0ff";
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "#00f0ff";
+  ctx.fillStyle = "#00eeffc4"; // Semi-transparent body
 
   // Loop through the array of 'obstacles' and draws them
   obstacles.forEach((obs) => {
     // Draw the top part of the obstacle
+    ctx.strokeRect(obs.x, 0, obs.width, obs.topHeight);
     ctx.fillRect(obs.x, 0, obs.width, obs.topHeight);
 
     // Draw the bottom part of the obstacle
+    ctx.strokeRect(obs.x, obs.bottomY, obs.width, canvas.height - obs.bottomY);
     ctx.fillRect(obs.x, obs.bottomY, obs.width, canvas.height - obs.bottomY);
   });
   ctx.restore();
@@ -283,34 +332,40 @@ function onCollision() {
 // === Score Logic ===
 function resetScore() {
   score = 0;
+  liveScore.textContent = score;
 }
 function updateScore() {
   score++;
+  liveScore.textContent = score;
   if (score > highScore) {
     updateHighScore();
   }
 }
 function updateHighScore() {
   highScore = score;
+  // Save to browser memory
+  localStorage.setItem("flappyDragonHighScore", highScore);
 }
-function drawScore() {
-  ctx.save();
 
-  ctx.fillStyle = "white";
-  ctx.font = "bold 24px Verdana";
-  ctx.textAlign = "center";
+// Moved over to using a live-score element instead of the canvas
+// function drawScore() {
+//   ctx.save();
 
-  // Shadow
-  ctx.shadowColor = "black";
-  ctx.shadowBlur = 2;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
+//   ctx.fillStyle = "white";
+//   ctx.font = "bold 24px Verdana";
+//   ctx.textAlign = "center";
 
-  // Draws the score at the top center of the canvas
-  ctx.fillText(`${score}`, canvas.width / 2, canvas.height / 10);
+//   // Shadow
+//   ctx.shadowColor = "black";
+//   ctx.shadowBlur = 2;
+//   ctx.shadowOffsetX = 2;
+//   ctx.shadowOffsetY = 2;
 
-  ctx.restore();
-}
+//   // Draws the score at the top center of the canvas
+//   ctx.fillText(`${score}`, canvas.width / 2, canvas.height / 10);
+
+//   ctx.restore();
+// }
 
 // === World Logic ===
 function createWorld() {}
@@ -341,8 +396,11 @@ function inputManager(e) {
   }
 
   // Handle Mouse and Touch events (Defaults to "Jump")
-  if (e.type === "mousedown" || e.type === "touchstart") {
-    inputHandler("Jump");
+
+  if (menuScreen.style.display !== "flex") {
+    if (e.type === "mousedown" || e.type === "touchstart") {
+      inputHandler("Jump");
+    }
   }
 }
 
@@ -360,6 +418,11 @@ function inputHandler(action) {
     // console.log("Game Paused!");
     if (gameRunning) {
       paused = !paused;
+      if (paused) {
+        drawPauseScreen();
+      } else {
+        menuScreen.style.display = "none";
+      }
     }
   }
 }

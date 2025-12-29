@@ -1,5 +1,15 @@
 /* style.css */
 
+/** === Variables === */
+:root {
+  --primary: #f20df2; /* Electric Magenta */
+  --secondary: #00f0ff; /* Cyan */
+  --bg-dark: #1a0b2e; /* Deep Purple Void */
+  --surface: #2d1b4e99;
+  --neon-glow: 0 0 15px #f20df299;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
 /** === Resets & Global Styles === */
 *,
 *::before,
@@ -10,25 +20,180 @@
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: #2b2b2b;
+  background-color: #0d0415;
   display: flex;
   justify-content: center;
   align-items: center;
+  height: 100vh;
+  background-color: #2b2b2b;
+  font-family: var(--font-display);
+  overflow: hidden;
+}
+
+/** === Game Container & Layering === */
+#game-container {
+  position: relative;
+  height: 100vh; /* Always fill the screen top-to-bottom */
+  aspect-ratio: 9 / 16; /* Maintain that vertical phone shape */
+  max-width: 100vw; /* On mobile, this will make it fill the width. On desktop, it prevents the game from becoming wider than the screen. */
+  background-color: var(--bg-dark);
+  border: 2px solid var(--primary);
   overflow: hidden;
 }
 
 #game {
-  height: 100vh; /* Always fill the screen top-to-bottom */
-  aspect-ratio: 9 / 16; /* Maintain that vertical phone shape */
-
-  /* On mobile, this will make it fill the width. 
-     On desktop, it prevents the game from becoming wider than the screen. */
-  max-width: 100vw;
-
+  width: 100%;
+  height: 100%;
   display: block;
-  background-color: #a8ddd3;
+  filter: contrast(1.1) brightness(1.1);
+}
+
+/** === UI Layer - Top Bar === */
+#ui-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 20px;
+  z-index: 11;
+  pointer-events: none;
+}
+
+#live-score {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 3rem;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 0 10px var(--secondary), 0 0 20px var(--secondary);
+  pointer-events: none;
+  z-index: 10;
+}
+
+#pause-btn {
+  pointer-events: auto;
+  float: right;
+  background: var(--surface);
+  backdrop-filter: blur(8px);
+  border: 1px solid #ffffff1a;
+  color: var(--secondary);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+#pause-btn:hover {
+  box-shadow: 0 0 15px var(--secondary);
+  transform: scale(1.1);
+}
+
+/** === Menu Screen Overlay === */
+#menu-screen {
+  position: absolute;
+  inset: 0px;
+  background: rgba(13, 4, 21, 0.85);
+  backdrop-filter: blur(12px);
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  padding: 2rem;
+}
+
+#menu-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  /* font-style: italic; */
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  transform: skewX(-10deg);
+  color: white;
+  text-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);
+}
+
+#menu-stats {
+  font-size: 0.9rem;
+  letter-spacing: 0.2rem;
+  text-transform: uppercase;
+  color: var(--secondary);
+  margin-bottom: 2.5rem;
+  font-weight: 500;
+}
+
+#menu-btn {
+  pointer-events: auto;
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 1.2rem 2.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: var(--neon-glow);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+#menu-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px var(--primary);
+}
+
+/* This creates a shimmer type of element that starts off -100% button width from the left */
+#menu-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transform: skewX(-15deg);
+  transition: 0.5s;
+}
+
+/* This moves the shimmer element over to the right side (100% button width from the left) */
+#menu-btn:hover::after {
+  left: 100%;
+}
+
+/** === Animations === */
+@keyframes flicker {
+  0%,
+  18%,
+  22%,
+  25%,
+  53%,
+  57%,
+  100% {
+    opacity: 1;
+  }
+  20%,
+  24%,
+  55% {
+    opacity: 0.8;
+  }
+}
+
+#menu-title {
+  animation: flicker 3s infinite;
 }
