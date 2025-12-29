@@ -49,15 +49,17 @@ body {
   filter: contrast(1.1) brightness(1.1);
 }
 
-/** === UI Layer - Top Bar === */
+/** === UI Layer === */
 #ui-layer {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
+  inset: 0; /* Shortcut for top, left, bottom, right = 0 */
   padding: 20px;
   z-index: 11;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
 }
 
 #live-score {
@@ -75,7 +77,8 @@ body {
 
 #pause-btn {
   pointer-events: auto;
-  float: right;
+  align-self: flex-start; /* Positions the button to the left */
+  margin-top: auto; /* Pushes the button to the bottom of the flexbox */
   background: var(--surface);
   backdrop-filter: blur(8px);
   border: 1px solid #ffffff1a;
