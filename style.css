@@ -19,13 +19,21 @@
   box-sizing: border-box;
 }
 
-html {
-  /* Disables double tap to zoom on mobile */
-  touch-action: manipulation;
+html,
+body,
+canvas {
+  /* Disables double tap to zoom, pinch to zoom etc. on mobile */
+  touch-action: none;
+
+  /* Disables the user accidentally being able to select text when tapping */
+  user-select: none;
+  -webkit-user-select: none;
+
+  /* Disables the "pull-to-refresh" on mobile chrome/safari */
+  overscroll-behavior: none;
 }
 
 body {
-  background-color: #0d0415;
   display: flex;
   justify-content: center;
   align-items: center;
