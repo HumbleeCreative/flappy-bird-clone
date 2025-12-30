@@ -43,20 +43,37 @@ let controlsAction = {
   Pause: { pressed: false, locked: false },
 };
 
+// Player Sprites
+const dragonSpriteFiles = [
+  "dragonSprite0.png",
+  "dragonSprite1.png",
+  "dragonSprite2.png",
+  "dragonSprite3.png",
+  "dragonSprite4.png",
+  "dragonSprite5.png",
+  "dragonSprite6.png",
+];
+let dragonSprites = [];
+let imagesLoaded = 0;
+
 let player = {
   x: -50, // Creates player off screen
   y: -50,
-  width: 64,
-  height: 64,
+  width: 0,
+  height: 0,
   velocity: 0,
-  sprite: 0,
+  frameIndex: 0,
+  animationSequence: [0, 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1],
+  frameTimer: 0,
+  frameInterval: 60, // Lower number = faster wings
 };
 
 // Array of obstacles
 let obstacles = [];
 
 // === Initialisation ===
-function init() {
+async function init() {
+  // Change to async to make sure everything is loaded before carrying on
   canvas = document.getElementById("game");
   ctx = canvas.getContext("2d");
 
@@ -83,10 +100,12 @@ function init() {
       inputHandler("Jump");
     });
   }
+
+  await loadAssets();
+
   // Set the initial Start Screen
   drawStartScreen();
 
-  loadAssets();
   requestAnimationFrame((timestamp) => {
     lastUpdateTime = timestamp;
     gameLoop(timestamp);
@@ -131,6 +150,15 @@ function gameOver() {
 }
 
 // === Utilities ===
+const loadImage = (src) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = `assets/${src}`;
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+  });
+};
+
 function resizeCanvas() {
   // Sets the canvas resolution to the actual canvas size as defined in the CSS
   canvas.width = canvas.clientWidth;
@@ -138,8 +166,9 @@ function resizeCanvas() {
 
   // Updates player size on resize event
   if (player) {
-    player.width = canvas.width * 0.8;
-    player.height = player.width;
+    player.height = canvas.width * 0.16;
+    // Maintain the aspect ratio
+    player.width = player.height * (166 / 129);
   }
 }
 function update(dt, deltaTime) {
@@ -149,6 +178,20 @@ function update(dt, deltaTime) {
       playerJump();
       jumpRequested = false; // Reset the flag
     }
+
+    // === Animation Logic ===
+    player.frameTimer += deltaTime; // Tracks the time since the last frame
+    if (player.frameTimer > player.frameInterval) {
+      // Moves to the next item in the animation sequence array
+      player.frameIndex++;
+
+      // If we get to the end of the animation sequence start from the beginning again
+      if (player.frameIndex >= player.animationSequence.length) {
+        player.frameIndex = 0;
+      }
+      player.frameTimer = 0; // Resets the frame timer back to 0
+    }
+
     movePlayer(dt);
     spawnObstacles(deltaTime); // Makes sure the timer only counts up when the game is not paused.
     moveObstacles(dt);
@@ -168,16 +211,46 @@ function draw() {
 }
 
 // === Visuals ===
-function loadAssets() {
+async function loadAssets() {
   // Load high score from memory when the game starts
   const savedScore = localStorage.getItem("flappyDragonHighScore");
   if (savedScore) {
     highScore = parseInt(savedScore);
   }
-  // Loads the sprites for anything visual
 
-  player.width = canvas.width * 0.08; // Makes the player object responsive to canvas size
-  player.height = player.width;
+  // Loop through the files in the dragonSpriteFiles array
+  for (let i = 0; i < dragonSpriteFiles.length; i++) {
+    try {
+      // Get the file names from the dragonSpriteFiles array
+      const fileName = dragonSpriteFiles[i];
+
+      // 'await' pauses this loop until the image has fully loaded before moving on to the next one
+      const img = await loadImage(fileName);
+
+      // When the image has loaded push it to the dragonSprites array
+      dragonSprites.push(img);
+
+      imagesLoaded++;
+
+      console.log(`Loaded image ${i + 1} of ${dragonSpriteFiles.length}`);
+    } catch (err) {
+      // If any image fails, log it with the error
+      console.error(`Could not load image: ${dragonSpriteFiles[i]}`);
+    }
+  }
+
+  // // Loads the sprites for the player
+  // spriteFiles.forEach((file, index) => {
+  //   const img = new Image();
+  //   img.src = `assets/${file}`; // Relative path to sprite files
+  //   img.onload = () => {
+  //     imagesLoaded++;
+  //   };
+  //   dragonSprites[index] = img;
+  // });
+
+  player.height = canvas.width * 0.16; // Makes the player object responsive to canvas size
+  player.width = player.height * (166 / 129); // Multiply the player height by the aspect ratio
 }
 function drawStartScreen() {
   menuTitle.innerHTML = "FLAPPY<br>DRAGON";
@@ -210,8 +283,32 @@ function resetPlayer() {
   player.velocity = 0;
 }
 function drawPlayer() {
-  ctx.fillStyle = "yellow";
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  // Safety check: if images aren't loaded yet, draw the fallback square
+  if (imagesLoaded < dragonSpriteFiles.length) {
+    player.width = canvas.width * 0.08;
+    player.height = player.width;
+    ctx.fillStyle = "yellow";
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+    return;
+  }
+  ctx.save();
+
+  ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+  // Rotate based on velocity (tilt up when jumping, down when falling)
+  let tilt = player.velocity * 0.05;
+  tilt = Math.max(-0.5, Math.min(tilt, 0.5)); // Clamp the tilt so he doesn't do a backflip
+  ctx.rotate(tilt);
+
+  const currentImg = dragonSprites[player.animationSequence[player.frameIndex]];
+  ctx.drawImage(
+    currentImg,
+    -player.width / 2,
+    -player.height / 2,
+    player.width,
+    player.height
+  );
+
+  ctx.restore();
 }
 function movePlayer(dt) {
   // We multiply everything by dt to make sure the fall speed is consistent on any device
@@ -299,7 +396,7 @@ function moveObstacles(dt) {
 }
 function cleanupObstacles() {
   // Removes obstacles when they have gone off the screen
-  obstacles = obstacles.filter((obs) => obs.x + obs.width > 0);
+  obstacles = obstacles.filter((obs) => obs.x + obs.width > 0); // This filters out obstacles that have gone off the screen so we do not keep calculating them to follow good memory management
 }
 function resetObstacles() {
   obstacles = []; // Clears the array
@@ -308,11 +405,15 @@ function resetObstacles() {
 // === Game Logic ===
 function checkCollision() {
   obstacles.forEach((obs) => {
+    // Changed the bounding box of the player to be slightly smaller than the sprite to make it feel slightly fairer if the sprite barely clips the obstacles
+    const hitPaddingX = player.width * 0.25;
+    const hitPaddingY = player.height * 0.25;
+
     // Define the player's bounding box
-    const pLeft = player.x;
-    const pRight = player.x + player.width;
-    const pTop = player.y;
-    const pBottom = player.y + player.height;
+    const pLeft = player.x + hitPaddingX;
+    const pRight = player.x + player.width - hitPaddingX;
+    const pTop = player.y + hitPaddingY;
+    const pBottom = player.y + player.height - hitPaddingY;
 
     // Define the Obstacle's left and right sides
     const oLeft = obs.x;
@@ -427,7 +528,7 @@ function inputHandler(action) {
       paused = false;
       menuScreen.style.display = "none";
     } else {
-      jumpRequested = true; // This works as a buffer instead of running the function instantly
+      jumpRequested = true; // Using the flag instead of just calling the jump function straight way makes sure that we only trigger the jump at the start of the next frame update which should prevent any glitches and stuttering
       // playerJump();
     }
   }

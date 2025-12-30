@@ -19,6 +19,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Disables double tap to zoom on mobile */
+  touch-action: manipulation;
+}
+
 body {
   background-color: #0d0415;
   display: flex;
