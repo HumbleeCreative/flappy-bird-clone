@@ -82,7 +82,7 @@ let player = {
 // Audio
 const bgMusic = new Audio("assets/audio/bgm/bgm-loop.mp3");
 bgMusic.loop = true;
-bgMusic.volume = 0.2; // Starts at 50% volume
+bgMusic.volume = 0.2; // Starts at 20% volume
 
 // Array of obstacles
 let obstacles = [];
@@ -349,7 +349,7 @@ function movePlayer(dt) {
 }
 function playerJump() {
   player.velocity = config.jumpStrength;
-  playSfx(sfx.jump);
+  // playSfx(sfx.jump);
 }
 
 // === Obstacle Logic ===
@@ -457,7 +457,7 @@ function checkCollision() {
   });
 }
 function onCollision() {
-  playSfx(sfx.death);
+  // playSfx(sfx.death);
   gameOver();
 }
 
@@ -470,7 +470,7 @@ function updateScore() {
   score++;
   liveScore.textContent = score;
 
-  playSfx(sfx.point);
+  // playSfx(sfx.point);
 
   if (score > highScore) {
     updateHighScore();
