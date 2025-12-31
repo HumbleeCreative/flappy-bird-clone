@@ -529,10 +529,10 @@ function inputHandler(action) {
   if (action === "Jump") {
     if (!gameRunning) {
       gameReset();
-      bgMusic.play();
+      // bgMusic.play();
     } else if (paused) {
       paused = false;
-      bgMusic.play();
+      // bgMusic.play();
       menuScreen.style.display = "none";
     } else {
       jumpRequested = true; // Using the flag instead of just calling the jump function straight way makes sure that we only trigger the jump at the start of the next frame update which should prevent any glitches and stuttering
@@ -546,9 +546,9 @@ function inputHandler(action) {
       paused = !paused;
       if (paused) {
         drawPauseScreen();
-        bgMusic.pause();
+        // bgMusic.pause();
       } else {
-        bgMusic.play();
+        // bgMusic.play();
         menuScreen.style.display = "none";
       }
     }
