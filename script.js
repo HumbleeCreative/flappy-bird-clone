@@ -333,7 +333,7 @@ function drawPlayer() {
     -player.width / 2,
     -player.height / 2,
     player.width,
-    player.height
+    player.height,
   );
 
   ctx.restore();
@@ -361,7 +361,7 @@ function movePlayer(dt) {
 }
 function playerJump() {
   player.velocity = config.jumpStrength;
-  // playSfx(sfx.jump);
+  playSfx(sfx.jump);
 }
 
 // === Obstacle Logic ===
@@ -469,7 +469,7 @@ function checkCollision() {
   });
 }
 function onCollision() {
-  // playSfx(sfx.death);
+  playSfx(sfx.death);
   gameOver();
 }
 
@@ -482,7 +482,7 @@ function updateScore() {
   score++;
   liveScore.textContent = score;
 
-  // playSfx(sfx.point);
+  playSfx(sfx.point);
 
   if (score > highScore) {
     updateHighScore();
