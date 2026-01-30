@@ -2,7 +2,6 @@
 
 //* === DOM Elements ===
 //#region DOM Elements
-
 const menuScreen = document.getElementById("menu-screen");
 const menuTitle = document.getElementById("menu-title");
 const menuStats = document.getElementById("menu-stats");
@@ -15,20 +14,18 @@ const canvas = document.getElementById("game");
 
 //* === Configuration ===
 //#region Configuration
-
 const config = {
-  gravity: 0.3,
-  jumpStrength: -8,
+  gravity: 0.35,
+  jumpStrength: -7.5,
   obstacleSpeed: 3,
   obstacleGap: 150,
   obstacleSpawnRate: 2000,
   terminalVelocity: 10,
   playerScale: 0.16, // Player height relative to the canvas width
   aspectRatio: 166 / 129, // Dragon sprite ratio
-  hitPadding: 0.25, // This is used to shrink the collision hitbox to make the game feel fairer
+  hitPadding: 0.3, // This is used to shrink the collision hitbox to make the game feel fairer
 };
 
-// Maps the keys to an action
 const controls = {
   Space: "Jump",
   ArrowUp: "Jump",
@@ -39,7 +36,6 @@ const controls = {
 
 //* === Global Variables ===
 //#region Global Variables
-
 let ctx, audioCtx, masterGain;
 
 let firstGame = true; // Flag to track if this is the first game in the session
@@ -47,6 +43,7 @@ let gameRunning = false; // Flag to track the game state
 let paused = false; // Flag to track paused game state
 let isCountingDown = false; // Flag to track if we are counting down after a pause
 let jumpRequested = false; // Flag to track if we should trigger a jump
+let isMenuVisible = true; // NEW: Boolean flag to replace expensive CSS checks
 
 let score = 0;
 let highScore = 0;
@@ -55,6 +52,8 @@ let spawnTimer = 0; // Timer for spawning obstacles
 let lastUpdateTime = 0; // Store the last time we updated the frame
 let countdownValue = 3;
 let countdownTimer = null;
+
+let backgroundStars = [];
 //#endregion
 
 //* === Assets ===
@@ -123,7 +122,7 @@ async function init() {
   canvas.addEventListener("mousedown", inputManager);
   canvas.addEventListener("touchstart", inputManager, { passive: false });
 
-  pauseBtn.addEventListener("click", async (e) => {
+  pauseBtn.addEventListener("click", (e) => {
     e.stopPropagation(); // e.stopPropagation stops the button clicks triggering the canvas click event
     inputHandler("Pause");
   });
@@ -142,6 +141,9 @@ async function init() {
       }
     });
   }
+
+  // Initialise Background
+  initBackground();
 
   await loadAssets();
 
@@ -166,18 +168,25 @@ function gameLoop(timestamp) {
   let deltaTime = timestamp - lastUpdateTime;
   lastUpdateTime = timestamp;
 
-  // Cap the deltaTime to 16.6 to prevent any huge lag spikes
-  if (deltaTime > 100) deltaTime = 16.6;
+  // Cap the deltaTime to 16.67 to prevent any huge lag spikes
+  if (deltaTime > 100) deltaTime = 16.67;
 
   // This normalises dt for 60 frames per second
-  const dt = deltaTime / 16.6;
+  const dt = deltaTime / 16.67;
 
+  updateDebug(dt);
   update(dt, deltaTime);
   draw();
   requestAnimationFrame(gameLoop);
 }
 
 function update(dt, deltaTime) {
+  // Update particles regardless of gameRunning state
+  particles.forEach((p, index) => {
+    p.update(dt);
+    if (p.alpha <= 0) particles.splice(index, 1);
+  });
+
   if (gameRunning && !paused) {
     if (jumpRequested) {
       playerJump();
@@ -206,23 +215,25 @@ function update(dt, deltaTime) {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height); // Clears the canvas
+  // Clear the whole canvas including DPR scaling
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 
   drawWorld(); // Draws first
   drawObstacles(); // Draws on top of the World
   drawPlayer(); // Draws on top of the Obstacles
+  particles.forEach((p) => p.draw()); // Draw particles on top of player to create explosion effect
 }
 //#endregion
 
 //* === Input Management ===
 //#region Input Management
 
-async function inputManager(e) {
-  // Wait until it has been initialised
-  if (!audioCtx) await initAudio();
-
-  // This ensures audio wakes up if the browser throttled it
-  if (audioCtx.state === "suspended" && !paused) await audioCtx.resume();
+// REMOVED 'async' to make the jump trigger instant
+function inputManager(e) {
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
 
   // Prevents a mobile touch triggering as a mouse click
   if (e.type === "touchstart") e.preventDefault();
@@ -232,38 +243,34 @@ async function inputManager(e) {
 
   if (actionName && controlsAction[actionName]) {
     // Handle Keyboard events
-    if (e.type === "keydown" && actionName) {
-      const action = controlsAction[actionName];
-
-      // Only trigger if not held down (locked)
-      if (!e.repeat && !action.locked) {
-        action.locked = true;
-        inputHandler(actionName);
-      }
+    // Only trigger if not held down (locked)
+    if (
+      e.type === "keydown" &&
+      !e.repeat &&
+      !controlsAction[actionName].locked
+    ) {
+      controlsAction[actionName].locked = true;
+      inputHandler(actionName);
     }
-
     // When a keyup event happens we unlock the action
-    if (e.type === "keyup" && actionName) {
-      controlsAction[actionName].locked = false;
-    }
+    if (e.type === "keyup") controlsAction[actionName].locked = false;
   }
 
   // Handle Mouse and Touch events (Defaults to "Jump")
   if (e.type === "mousedown" || e.type === "touchstart") {
-    if (!gameRunning || paused) {
-      inputHandler("Jump");
-    } else if (menuScreen.style.display !== "flex") {
+    // Check our boolean flag instead of the DOM
+    if (gameRunning && !paused && !isMenuVisible) {
+      jumpRequested = true;
+    } else {
       inputHandler("Jump");
     }
   }
 }
 
-//* === Input Handler ===
-
 async function inputHandler(action) {
   if (action === "Jump") {
     if (!gameRunning) {
-      if (audioCtx.state === "suspended") await audioCtx.resume();
+      if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
       gameReset();
     } else if (paused && !isCountingDown) {
       startResumeCountdown();
@@ -277,7 +284,7 @@ async function inputHandler(action) {
     paused = !paused;
     if (paused) {
       drawPauseScreen();
-      audioCtx.suspend();
+      if (audioCtx) audioCtx.suspend();
     } else {
       startResumeCountdown();
     }
@@ -289,9 +296,8 @@ async function inputHandler(action) {
 //#region Player Logic
 
 function resetPlayer() {
-  // Resets the player to be 20% of the canvas width from the left of the canvas and centred vertically
-  player.x = canvas.width / 5;
-  player.y = canvas.height / 2;
+  player.x = canvas.clientWidth / 5;
+  player.y = canvas.clientHeight / 2;
   player.velocity = 0;
 }
 
@@ -306,10 +312,8 @@ function movePlayer(dt) {
 
   player.y += player.velocity * dt; // Makes the player fall at the rate of gravity
 
-  // If the player hits the floor trigger collision
-  if (player.y + player.height > canvas.height) {
-    player.y = canvas.height - player.height;
-    // Triggers a collision
+  if (player.y + player.height > canvas.clientHeight) {
+    player.y = canvas.clientHeight - player.height;
     onCollision();
   }
 
@@ -323,13 +327,19 @@ function movePlayer(dt) {
 
 function playerJump() {
   player.velocity = config.jumpStrength;
-  playSfx(sfxBuffers.jump, 0.2);
+  setTimeout(() => {
+    if (sfxBuffers.jump) playSfx(sfxBuffers.jump, 0.2);
+  }, 0);
 }
 
 function drawPlayer() {
+  // If the game isn't running and it's not the first load,
+  // hide the player (because they just exploded!)
+  if (!gameRunning && !isMenuVisible) return;
+
   // Safety check: if images aren't loaded yet, draw the fallback square
   if (imagesLoaded < dragonSpriteFiles.length) {
-    player.width = canvas.width * 0.08;
+    player.width = canvas.clientWidth * 0.08;
     player.height = player.width;
     ctx.fillStyle = "yellow";
     ctx.fillRect(player.x, player.y, player.width, player.height);
@@ -361,7 +371,7 @@ function drawPlayer() {
 // Creates the obstacle and pushes it on to the array 'obstacles'
 function createObstacles() {
   const minHeight = 50;
-  const maxHeight = canvas.height - config.obstacleGap - 50;
+  const maxHeight = canvas.clientHeight - config.obstacleGap - 50;
 
   // Sets the size of the top part of the obstacle
   const topObstacleHeight =
@@ -369,7 +379,7 @@ function createObstacles() {
 
   // Creates the obstacle object
   let obstacle = {
-    x: canvas.width, // Starts at the right edge of canvas
+    x: canvas.clientWidth, // Starts at the right edge of canvas
     width: 50, // Fixed width for obstacle
     topHeight: topObstacleHeight, // Where the top part of the obstacle ends
     bottomY: topObstacleHeight + config.obstacleGap, // Where the bottom part of the obstacle starts
@@ -416,14 +426,23 @@ function drawObstacles() {
 
   // Loop through the array of 'obstacles' and draws them
   obstacles.forEach((obs) => {
-    const floorX = Math.floor(obs.x);
+    const drawX = Math.floor(obs.x);
     // Draw the top part of the obstacle
-    ctx.strokeRect(floorX, 0, obs.width, obs.topHeight); // Introduced Math.floor to smooth out the edges
-    ctx.fillRect(floorX, 0, obs.width, obs.topHeight);
-
+    ctx.strokeRect(drawX, 0, obs.width, obs.topHeight); // Introduced Math.floor to smooth out the edges
+    ctx.fillRect(drawX, 0, obs.width, obs.topHeight);
     // Draw the bottom part of the obstacle
-    ctx.strokeRect(floorX, obs.bottomY, obs.width, canvas.height - obs.bottomY);
-    ctx.fillRect(floorX, obs.bottomY, obs.width, canvas.height - obs.bottomY);
+    ctx.strokeRect(
+      drawX,
+      obs.bottomY,
+      obs.width,
+      canvas.clientHeight - obs.bottomY,
+    );
+    ctx.fillRect(
+      drawX,
+      obs.bottomY,
+      obs.width,
+      canvas.clientHeight - obs.bottomY,
+    );
   });
   ctx.restore();
 }
@@ -433,7 +452,7 @@ function drawObstacles() {
 //#region Collision & Scoring
 function checkCollision() {
   // Changed the bounding box of the player to be slightly smaller than the sprite to make it feel slightly fairer if the sprite barely clips the obstacles
-  const hitPaddingX = player.width * config.hitPadding;
+  const hitPaddingX = player.width * config.hitPadding * 1.25;
   const hitPaddingY = player.height * config.hitPadding;
 
   // Define the player's bounding box
@@ -467,8 +486,28 @@ function checkCollision() {
 }
 
 function onCollision() {
-  playSfx(sfxBuffers.death, 0.2);
-  gameOver();
+  if (!gameRunning) return; // Prevent multiple triggers
+
+  if (sfxBuffers.death) playSfx(sfxBuffers.death, 0.2);
+
+  // Trigger particle burst at player location
+  createExplosion(
+    player.x + player.width / 2,
+    player.y + player.height / 2,
+    "#f20df2",
+  );
+  createExplosion(
+    player.x + player.width / 2,
+    player.y + player.height / 2,
+    "#00f0ff",
+  );
+
+  gameRunning = false;
+
+  // Wait 1 second to allow for particle explosion
+  setTimeout(() => {
+    drawGameOverScreen();
+  }, 1000);
 }
 //#endregion
 
@@ -478,13 +517,11 @@ function onCollision() {
 function updateScore() {
   score++;
   liveScore.textContent = score;
-
-  playSfx(sfxBuffers.point, 0.2);
-
+  if (sfxBuffers.point) playSfx(sfxBuffers.point, 0.2);
   if (score > highScore) {
     highScore = score;
     // Save to browser memory
-    localStorage.setItem("flappyDragonHighScore", highScore);
+    localStorage.setItem("gloWingHighScore", highScore);
   }
 }
 //#endregion
@@ -578,12 +615,16 @@ function stopBGM() {
 //#region UI & Visuals
 function resizeCanvas() {
   // Sets the canvas resolution to the actual canvas size as defined in the CSS
-  canvas.width = canvas.clientWidth;
-  canvas.height = canvas.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
 
   // Updates player size on resize event
   if (player) {
-    player.height = canvas.width * config.playerScale;
+    player.height = canvas.clientWidth * config.playerScale;
     // Maintain the aspect ratio of the sprite
     player.width = player.height * config.aspectRatio;
   }
@@ -593,7 +634,7 @@ async function loadAssets() {
   drawLoadingScreen();
 
   // Load high score from memory when the game starts
-  const savedScore = localStorage.getItem("flappyDragonHighScore");
+  const savedScore = localStorage.getItem("gloWingHighScore");
   if (savedScore) {
     highScore = parseInt(savedScore);
   }
@@ -601,24 +642,13 @@ async function loadAssets() {
   // Loop through the files in the dragonSpriteFiles array
   for (let i = 0; i < dragonSpriteFiles.length; i++) {
     try {
-      // Get the file names from the dragonSpriteFiles array
-      const fileName = dragonSpriteFiles[i];
-
-      // 'await' pauses this loop until the image has fully loaded before moving on to the next one
-      const img = await loadImage(fileName);
-
-      // When the image has loaded push it to the dragonSprites array
-      dragonSprites.push(img);
-
+      const img = await loadImage(dragonSpriteFiles[i]);
+      dragonSprites.push(img); // When the image has loaded push it to the dragonSprites array
       imagesLoaded++;
-
-      console.log(`Loaded image ${i + 1} of ${dragonSpriteFiles.length}`);
     } catch (err) {
-      // If any image fails, log it with the error
-      console.error(`Could not load image: ${dragonSpriteFiles[i]}`);
+      console.error(`Could not load image: ${dragonSpriteFiles[i]}`); // If any image fails, log it with the error
     }
   }
-
   resizeCanvas();
 }
 
@@ -632,8 +662,10 @@ const loadImage = (src) => {
 };
 
 function gameReset() {
+  isMenuVisible = false;
   resetPlayer();
   obstacles = []; // Resets the obstacles array
+  particles = []; // Resets death particles
   score = 0; // Resets the score
   liveScore.textContent = score; // Resets the live score
   gameRunning = true;
@@ -652,6 +684,7 @@ function gameOver() {
 }
 
 function drawLoadingScreen() {
+  isMenuVisible = true;
   menuTitle.innerHTML = "Loading";
   menuStats.textContent = "Waking up the dragon...";
   menuBtn.style.display = "none";
@@ -659,20 +692,24 @@ function drawLoadingScreen() {
 }
 
 function drawStartScreen() {
-  menuTitle.innerHTML = "FLAPPY<br>DRAGON";
+  isMenuVisible = true;
+  menuTitle.innerHTML = "Glo-<br>Wing";
   menuStats.textContent = "HumbleeCreative";
   menuBtn.textContent = "Start Game";
   menuBtn.style.display = "block";
   menuScreen.style.display = "flex";
 }
 function drawGameOverScreen() {
+  isMenuVisible = true;
   menuTitle.innerHTML = "💀<br>uh oh!";
   menuStats.innerHTML = `SCORE: ${score} <span style="color:white; margin: 0 10px;">|</span> BEST: ${highScore}`;
   menuBtn.textContent = "Try Again";
   menuBtn.style.display = "block";
   menuScreen.style.display = "flex";
 }
+
 function drawPauseScreen() {
+  isMenuVisible = true;
   menuTitle.textContent = "Paused";
   menuStats.textContent = "Taking a break?";
   menuBtn.textContent = "Resume";
@@ -681,6 +718,7 @@ function drawPauseScreen() {
 }
 
 function drawCountdownScreen() {
+  isMenuVisible = true;
   menuTitle.innerHTML = countdownValue;
   menuStats.textContent = "GET READY...";
   menuBtn.style.display = "none";
@@ -692,10 +730,7 @@ async function startResumeCountdown() {
 
   isCountingDown = true;
   countdownValue = 3;
-
-  if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume();
-  }
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
 
   drawCountdownScreen();
   playSfx(sfxBuffers.point, 0.1);
@@ -717,14 +752,85 @@ async function startResumeCountdown() {
       clearInterval(countdownTimer);
       isCountingDown = false;
       paused = false;
+      isMenuVisible = false;
       menuScreen.style.display = "none";
       menuTitle.classList.remove("countdown-active");
     }
   }, 1000);
 }
 
+//* === Background ===
+function initBackground() {
+  for (let i = 0; i < 50; i++) {
+    backgroundStars.push({
+      x: Math.random() * canvas.clientWidth,
+      y: Math.random() * canvas.clientHeight,
+      size: Math.random() * 2,
+      speed: Math.random() * 0.5 + 0.2,
+    });
+  }
+}
+
 function drawWorld() {
-  // Future plans to implement a parallax moving background
+  ctx.fillStyle = "#ffee00b2";
+  backgroundStars.forEach((star) => {
+    ctx.fillRect(star.x, star.y, star.size, star.size);
+    if (gameRunning && !paused) {
+      star.x -= star.speed; // Move stars left
+      if (star.x < 0) star.x = canvas.clientWidth; // Wrap around
+    }
+  });
+}
+//#endregion
+
+//* === Particle System ===
+//#region Particles
+let particles = [];
+
+class Particle {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    this.size = Math.random() * 8 + 2;
+    // Random velocity in any direction
+    this.speedX = (Math.random() - 0.5) * 4;
+    this.speedY = (Math.random() - 0.5) * 4;
+    this.color = color;
+    this.alpha = 1; // For fading out
+    this.decay = Math.random() * 0.02 + 0.015; // How fast it disappears
+  }
+
+  update(dt) {
+    this.x += this.speedX * dt;
+    this.y += this.speedY * dt;
+    this.alpha -= this.decay * dt;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.fillStyle = this.color;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = this.color;
+    ctx.fillRect(this.x, this.y, this.size, this.size);
+    ctx.restore();
+  }
+}
+
+function createExplosion(x, y, color) {
+  for (let i = 0; i < 15; i++) {
+    particles.push(new Particle(x, y, color));
+  }
+}
+//#endregion
+
+//* === Debug Logic ===
+//#region Debug Logic
+
+function updateDebug(dt) {
+  document.getElementById("debug-fps").textContent = Math.round(60 / dt);
+  document.getElementById("debug-y").textContent = Math.round(player.y);
+  document.getElementById("debug-dpr").textContent = window.devicePixelRatio;
 }
 //#endregion
 

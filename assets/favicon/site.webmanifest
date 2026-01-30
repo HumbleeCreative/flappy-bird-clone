@@ -1,6 +1,6 @@
 {
-  "name": "Flappy Dragon",
-  "short_name": "Flappy Dragon",
+  "name": "Glo-Wing",
+  "short_name": "Glo-Wing",
   "icons": [
     {
       "src": "web-app-manifest-192x192.png",
@@ -17,6 +17,6 @@
   ],
   "theme_color": "#3b3b3b",
   "background_color": "#3b3b3b",
-  "start_url": "/flappy-bird-clone/",
+  "start_url": "/glow-wing/",
   "display": "standalone"
 }

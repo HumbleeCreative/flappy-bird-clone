@@ -1,5 +1,5 @@
 <!-- index.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -16,30 +16,31 @@
     <link
       rel="icon"
       type="image/png"
-      href="/flappy-bird-clone/assets/favicon/favicon-96x96.png"
+      href="/glo-wing/assets/favicon/favicon-96x96.png"
       sizes="96x96"
     />
     <link
       rel="icon"
       type="image/svg+xml"
-      href="/flappy-bird-clone/assets/favicon/favicon.svg"
+      href="/glo-wing/assets/favicon/favicon.svg"
     />
-    <link
-      rel="shortcut icon"
-      href="/flappy-bird-clone/assets/favicon/favicon.ico"
-    />
+    <link rel="shortcut icon" href="/glo-wing/assets/favicon/favicon.ico" />
     <link
       rel="apple-touch-icon"
       sizes="180x180"
-      href="/flappy-bird-clone/assets/favicon/apple-touch-icon.png"
+      href="/glo-wing/assets/favicon/apple-touch-icon.png"
     />
-    <link
-      rel="manifest"
-      href="/flappy-bird-clone/assets/favicon/site.webmanifest"
-    />
-    <title>Flappy Dragon</title>
+    <link rel="manifest" href="/glo-wing/assets/favicon/site.webmanifest" />
+    <title>Glo Wing</title>
   </head>
   <body>
+    <div id="debug-overlay">
+      FPS: <span id="debug-fps">0</span><br />
+      Logic Y: <span id="debug-y">0</span><br />
+      DPR: <span id="debug-dpr">0</span><br />
+      Canvas W/H: <span id="debug-res">0</span><br />
+      Interp: <span id="debug-interp">0</span>
+    </div>
     <div id="game-container">
       <canvas id="game"></canvas>
 
